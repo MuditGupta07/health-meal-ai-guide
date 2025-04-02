@@ -643,4 +643,4 @@ export const generateRecipe = async (preferences: {
     return data.results.map(mapSpoonacularRecipe);
   } catch (error) {
     console.error("Error generating recipe:", error);
-    toast.error("Failed to generate
+    toast.error("
