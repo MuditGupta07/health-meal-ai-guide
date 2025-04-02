@@ -1,3 +1,4 @@
+
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -643,4 +644,123 @@ export const generateRecipe = async (preferences: {
     return data.results.map(mapSpoonacularRecipe);
   } catch (error) {
     console.error("Error generating recipe:", error);
-    toast.error("
+    toast.error("Failed to generate recipe. Please try again later.");
+    return [];
+  }
+};
+
+// Add functions for saved/favorite recipes
+export const saveRecipe = async (recipe: Recipe): Promise<boolean> => {
+  try {
+    const user = await supabase.auth.getUser();
+    const userId = user.data.user?.id;
+    
+    if (!userId) {
+      toast.error("You must be logged in to save recipes");
+      return false;
+    }
+    
+    const { error } = await supabase.from('saved_recipes').insert({
+      user_id: userId,
+      recipe_id: recipe.id,
+      recipe_data: recipe
+    });
+    
+    if (error) {
+      console.error("Error saving recipe:", error);
+      toast.error("Failed to save recipe. Please try again.");
+      return false;
+    }
+    
+    toast.success("Recipe saved to favorites!");
+    return true;
+  } catch (error) {
+    console.error("Error saving recipe:", error);
+    toast.error("Failed to save recipe. Please try again.");
+    return false;
+  }
+};
+
+export const removeRecipe = async (recipeId: number): Promise<boolean> => {
+  try {
+    const user = await supabase.auth.getUser();
+    const userId = user.data.user?.id;
+    
+    if (!userId) {
+      toast.error("You must be logged in to remove saved recipes");
+      return false;
+    }
+    
+    const { error } = await supabase.from('saved_recipes')
+      .delete()
+      .eq('user_id', userId)
+      .eq('recipe_id', recipeId);
+    
+    if (error) {
+      console.error("Error removing recipe:", error);
+      toast.error("Failed to remove recipe. Please try again.");
+      return false;
+    }
+    
+    toast.success("Recipe removed from favorites");
+    return true;
+  } catch (error) {
+    console.error("Error removing recipe:", error);
+    toast.error("Failed to remove recipe. Please try again.");
+    return false;
+  }
+};
+
+export const getSavedRecipes = async (): Promise<Recipe[]> => {
+  try {
+    const user = await supabase.auth.getUser();
+    const userId = user.data.user?.id;
+    
+    if (!userId) {
+      return [];
+    }
+    
+    const { data, error } = await supabase.from('saved_recipes')
+      .select('recipe_data')
+      .eq('user_id', userId);
+    
+    if (error) {
+      console.error("Error fetching saved recipes:", error);
+      toast.error("Failed to load your saved recipes");
+      return [];
+    }
+    
+    return data.map(item => item.recipe_data as Recipe);
+  } catch (error) {
+    console.error("Error fetching saved recipes:", error);
+    toast.error("Failed to load your saved recipes");
+    return [];
+  }
+};
+
+export const isRecipeSaved = async (recipeId: number): Promise<boolean> => {
+  try {
+    const user = await supabase.auth.getUser();
+    const userId = user.data.user?.id;
+    
+    if (!userId) {
+      return false;
+    }
+    
+    const { data, error } = await supabase.from('saved_recipes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('recipe_id', recipeId)
+      .maybeSingle();
+    
+    if (error) {
+      console.error("Error checking saved recipe:", error);
+      return false;
+    }
+    
+    return !!data;
+  } catch (error) {
+    console.error("Error checking saved recipe:", error);
+    return false;
+  }
+};
