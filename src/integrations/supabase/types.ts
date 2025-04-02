@@ -9,7 +9,87 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      recipe_generations: {
+        Row: {
+          ai_model: string | null
+          created_at: string
+          id: string
+          prompt: string
+          result: Json | null
+          user_id: string
+        }
+        Insert: {
+          ai_model?: string | null
+          created_at?: string
+          id?: string
+          prompt: string
+          result?: Json | null
+          user_id: string
+        }
+        Update: {
+          ai_model?: string | null
+          created_at?: string
+          id?: string
+          prompt?: string
+          result?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      saved_recipes: {
+        Row: {
+          created_at: string
+          id: string
+          recipe_data: Json
+          recipe_id: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          recipe_data: Json
+          recipe_id: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          recipe_data?: Json
+          recipe_id?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          allergies: Json | null
+          created_at: string
+          dietary_preferences: Json | null
+          display_name: string | null
+          health_conditions: Json | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          allergies?: Json | null
+          created_at?: string
+          dietary_preferences?: Json | null
+          display_name?: string | null
+          health_conditions?: Json | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          allergies?: Json | null
+          created_at?: string
+          dietary_preferences?: Json | null
+          display_name?: string | null
+          health_conditions?: Json | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

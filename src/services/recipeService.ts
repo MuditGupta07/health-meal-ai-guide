@@ -1,6 +1,5 @@
-
-// This is a mock service that would be replaced with actual API calls to Spoonacular or similar
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Recipe {
   id: number;
@@ -61,7 +60,7 @@ export interface RecipeFilters {
   query?: string;
 }
 
-// Mock recipes data - in a real app, this would come from an API
+// Mock recipes data - will be used as fallback if API fails
 const mockRecipes: Recipe[] = [
   {
     id: 1,
@@ -308,215 +307,340 @@ const mockRecipes: Recipe[] = [
   }
 ];
 
-// Function to fetch recipes based on filters
+// Function to map Spoonacular recipe to our app's recipe format
+const mapSpoonacularRecipe = (spoonacularRecipe: any): Recipe => {
+  // Extract health labels based on diet, nutrition, etc.
+  const healthLabels: string[] = [];
+  
+  if (spoonacularRecipe.veryHealthy) {
+    healthLabels.push("Heart Healthy");
+  }
+  
+  if (spoonacularRecipe.veryPopular) {
+    healthLabels.push("Popular");
+  }
+  
+  if (spoonacularRecipe.glutenFree) {
+    healthLabels.push("Gluten-Free");
+  }
+  
+  if (spoonacularRecipe.vegetarian) {
+    healthLabels.push("Vegetarian");
+  }
+  
+  if (spoonacularRecipe.vegan) {
+    healthLabels.push("Vegan");
+  }
+  
+  if (spoonacularRecipe.dairyFree) {
+    healthLabels.push("Dairy-Free");
+  }
+  
+  const nutrition = spoonacularRecipe.nutrition || { nutrients: [] };
+  const nutrients = nutrition.nutrients || [];
+  
+  if (nutrients.find((n: any) => n.name === "Sugar" && n.amount < 5)) {
+    healthLabels.push("Low Glycemic");
+  }
+  
+  if (nutrients.find((n: any) => n.name === "Fiber" && n.amount > 5)) {
+    healthLabels.push("High Fiber");
+  }
+  
+  if (nutrients.find((n: any) => n.name === "Sodium" && n.amount < 140)) {
+    healthLabels.push("Low Sodium");
+  }
+  
+  // Map ingredients
+  const ingredients = spoonacularRecipe.extendedIngredients?.map((ingredient: any) => ({
+    name: ingredient.name,
+    amount: ingredient.amount,
+    unit: ingredient.unit
+  })) || [];
+  
+  // Map instructions
+  const instructions = spoonacularRecipe.analyzedInstructions?.[0]?.steps?.map((step: any) => ({
+    step: step.number,
+    description: step.step
+  })) || [];
+  
+  // Map nutrition
+  const mappedNutrition = {
+    calories: nutrients.find((n: any) => n.name === "Calories")?.amount || 0,
+    carbs: {
+      name: "Carbohydrates",
+      amount: nutrients.find((n: any) => n.name === "Carbohydrates")?.amount || 0,
+      unit: "g",
+      percentOfDailyNeeds: nutrients.find((n: any) => n.name === "Carbohydrates")?.percentOfDailyNeeds || 0
+    },
+    protein: {
+      name: "Protein",
+      amount: nutrients.find((n: any) => n.name === "Protein")?.amount || 0,
+      unit: "g",
+      percentOfDailyNeeds: nutrients.find((n: any) => n.name === "Protein")?.percentOfDailyNeeds || 0
+    },
+    fat: {
+      name: "Fat",
+      amount: nutrients.find((n: any) => n.name === "Fat")?.amount || 0,
+      unit: "g",
+      percentOfDailyNeeds: nutrients.find((n: any) => n.name === "Fat")?.percentOfDailyNeeds || 0
+    },
+    fiber: {
+      name: "Fiber",
+      amount: nutrients.find((n: any) => n.name === "Fiber")?.amount || 0,
+      unit: "g",
+      percentOfDailyNeeds: nutrients.find((n: any) => n.name === "Fiber")?.percentOfDailyNeeds || 0
+    },
+    nutrients: nutrients.map((nutrient: any) => ({
+      name: nutrient.name,
+      amount: nutrient.amount,
+      unit: nutrient.unit,
+      percentOfDailyNeeds: nutrient.percentOfDailyNeeds
+    }))
+  };
+  
+  return {
+    id: spoonacularRecipe.id,
+    title: spoonacularRecipe.title,
+    image: spoonacularRecipe.image,
+    readyInMinutes: spoonacularRecipe.readyInMinutes,
+    servings: spoonacularRecipe.servings,
+    summary: spoonacularRecipe.summary,
+    healthLabels,
+    ingredients,
+    instructions,
+    nutrition: mappedNutrition
+  };
+};
+
+// Function to fetch recipes from Spoonacular API
 export const getRecipes = async (filters?: RecipeFilters): Promise<Recipe[]> => {
   try {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Convert filters to Spoonacular API format
+    const apiFilters: any = {};
     
-    if (!filters) return mockRecipes;
+    if (filters?.query) {
+      apiFilters.query = filters.query;
+    }
     
-    let filteredRecipes = [...mockRecipes];
+    if (filters?.diet) {
+      apiFilters.diet = filters.diet.toLowerCase();
+    }
     
-    // Filter by health conditions
-    if (filters.healthConditions && filters.healthConditions.length > 0) {
-      const conditions = filters.healthConditions.map(c => c.toLowerCase());
+    if (filters?.allergies && filters.allergies.length > 0) {
+      apiFilters.intolerances = filters.allergies;
+    }
+    
+    if (filters?.healthConditions && filters.healthConditions.length > 0) {
+      apiFilters.healthConditions = filters.healthConditions;
+    }
+    
+    // Call Spoonacular API through Supabase Edge Function
+    const { data, error } = await supabase.functions.invoke('spoonacular', {
+      body: { 
+        ...apiFilters,
+        endpoint: 'search'
+      }
+    });
+    
+    if (error) {
+      console.error("API error:", error);
+      toast.error("Failed to load recipes from API. Using cached data.");
+      return filterMockRecipes(filters);
+    }
+    
+    if (!data.results || data.results.length === 0) {
+      return [];
+    }
+    
+    // Map Spoonacular recipes to our app's recipe format
+    return data.results.map(mapSpoonacularRecipe);
+  } catch (error) {
+    console.error("Error fetching recipes:", error);
+    toast.error("Failed to load recipes. Using cached data.");
+    return filterMockRecipes(filters);
+  }
+};
+
+// Function to filter mock recipes (fallback if API fails)
+const filterMockRecipes = (filters?: RecipeFilters): Recipe[] => {
+  if (!filters) return mockRecipes;
+    
+  let filteredRecipes = [...mockRecipes];
+  
+  // Filter by health conditions
+  if (filters.healthConditions && filters.healthConditions.length > 0) {
+    const conditions = filters.healthConditions.map(c => c.toLowerCase());
       
-      // Map health conditions to relevant health labels
-      const conditionToLabels: Record<string, string[]> = {
-        'diabetes': ['Diabetes Friendly', 'Low Glycemic', 'Low Carb'],
-        'heart-disease': ['Heart Healthy', 'Low Sodium'],
-        'hypertension': ['Low Sodium', 'Hypertension Friendly'],
-        'pcos': ['PCOS Friendly', 'Low Carb', 'Anti-Inflammatory'],
-        'cholesterol': ['Heart Healthy', 'Low Carb'],
-      };
+    // Map health conditions to relevant health labels
+    const conditionToLabels: Record<string, string[]> = {
+      'diabetes': ['Diabetes Friendly', 'Low Glycemic', 'Low Carb'],
+      'heart-disease': ['Heart Healthy', 'Low Sodium'],
+      'hypertension': ['Low Sodium', 'Hypertension Friendly'],
+      'pcos': ['PCOS Friendly', 'Low Carb', 'Anti-Inflammatory'],
+      'cholesterol': ['Heart Healthy', 'Low Carb'],
+    };
       
-      const relevantLabels = conditions.flatMap(c => conditionToLabels[c] || []);
+    const relevantLabels = conditions.flatMap(c => conditionToLabels[c] || []);
       
-      if (relevantLabels.length > 0) {
+    if (relevantLabels.length > 0) {
+      filteredRecipes = filteredRecipes.filter(recipe => 
+        recipe.healthLabels.some(label => 
+          relevantLabels.some(relevantLabel => 
+            label.toLowerCase().includes(relevantLabel.toLowerCase())
+          )
+        )
+      );
+    }
+  }
+  
+  // Filter by allergies
+  if (filters.allergies && filters.allergies.length > 0) {
+    const allergies = filters.allergies.map(a => a.toLowerCase());
+      
+    // Define ingredients to avoid for each allergy
+    const allergyIngredients: Record<string, string[]> = {
+      'dairy': ['milk', 'cheese', 'yogurt', 'cream', 'butter'],
+      'gluten': ['wheat', 'barley', 'rye', 'bread', 'pasta'],
+      'nuts': ['almond', 'walnut', 'pecan', 'cashew', 'pistachio', 'hazelnut'],
+      'eggs': ['egg', 'omelet', 'mayonnaise'],
+      'soy': ['soy', 'tofu', 'edamame', 'soy sauce'],
+      'shellfish': ['shrimp', 'crab', 'lobster', 'scallop', 'clam']
+    };
+      
+    // Filter out recipes containing allergenic ingredients
+    allergies.forEach(allergy => {
+      const ingredientsToAvoid = allergyIngredients[allergy] || [];
+      if (ingredientsToAvoid.length > 0) {
         filteredRecipes = filteredRecipes.filter(recipe => 
-          recipe.healthLabels.some(label => 
-            relevantLabels.some(relevantLabel => 
-              label.toLowerCase().includes(relevantLabel.toLowerCase())
+          !recipe.ingredients.some(ingredient => 
+            ingredientsToAvoid.some(allergen => 
+              ingredient.name.toLowerCase().includes(allergen)
             )
           )
         );
       }
-    }
-    
-    // Filter by allergies
-    if (filters.allergies && filters.allergies.length > 0) {
-      const allergies = filters.allergies.map(a => a.toLowerCase());
-      
-      // Define ingredients to avoid for each allergy
-      const allergyIngredients: Record<string, string[]> = {
-        'dairy': ['milk', 'cheese', 'yogurt', 'cream', 'butter'],
-        'gluten': ['wheat', 'barley', 'rye', 'bread', 'pasta'],
-        'nuts': ['almond', 'walnut', 'pecan', 'cashew', 'pistachio', 'hazelnut'],
-        'eggs': ['egg', 'omelet', 'mayonnaise'],
-        'soy': ['soy', 'tofu', 'edamame', 'soy sauce'],
-        'shellfish': ['shrimp', 'crab', 'lobster', 'scallop', 'clam']
-      };
-      
-      // Filter out recipes containing allergenic ingredients
-      allergies.forEach(allergy => {
-        const ingredientsToAvoid = allergyIngredients[allergy] || [];
-        if (ingredientsToAvoid.length > 0) {
-          filteredRecipes = filteredRecipes.filter(recipe => 
-            !recipe.ingredients.some(ingredient => 
-              ingredientsToAvoid.some(allergen => 
-                ingredient.name.toLowerCase().includes(allergen)
-              )
-            )
-          );
-        }
-      });
-    }
-    
-    // Filter by diet
-    if (filters.diet) {
-      switch (filters.diet.toLowerCase()) {
-        case 'vegetarian':
-          filteredRecipes = filteredRecipes.filter(recipe => 
-            !recipe.ingredients.some(ingredient => 
-              ['chicken', 'beef', 'pork', 'turkey', 'meat', 'fish', 'salmon'].some(meat => 
-                ingredient.name.toLowerCase().includes(meat)
-              )
-            )
-          );
-          break;
-        case 'vegan':
-          filteredRecipes = filteredRecipes.filter(recipe => 
-            !recipe.ingredients.some(ingredient => 
-              ['chicken', 'beef', 'pork', 'turkey', 'meat', 'fish', 'salmon', 'milk', 'cheese', 'yogurt', 'cream', 'egg'].some(animal => 
-                ingredient.name.toLowerCase().includes(animal)
-              )
-            )
-          );
-          break;
-        case 'keto':
-          filteredRecipes = filteredRecipes.filter(recipe => 
-            recipe.nutrition.carbs.amount < 20 && recipe.nutrition.fat.amount > 15
-          );
-          break;
-        case 'mediterranean':
-          filteredRecipes = filteredRecipes.filter(recipe => 
-            recipe.ingredients.some(ingredient => 
-              ['olive oil', 'fish', 'legume', 'vegetable', 'fruit', 'nut', 'seed', 'herb'].some(med => 
-                ingredient.name.toLowerCase().includes(med)
-              )
-            )
-          );
-          break;
-        case 'dash':
-          filteredRecipes = filteredRecipes.filter(recipe => 
-            recipe.healthLabels.some(label => 
-              label.toLowerCase().includes('low sodium') || label.toLowerCase().includes('heart healthy')
-            )
-          );
-          break;
-      }
-    }
-    
-    // Search by query
-    if (filters.query) {
-      const query = filters.query.toLowerCase();
-      filteredRecipes = filteredRecipes.filter(recipe => 
-        recipe.title.toLowerCase().includes(query) || 
-        recipe.ingredients.some(ingredient => ingredient.name.toLowerCase().includes(query))
-      );
-    }
-    
-    return filteredRecipes;
-  } catch (error) {
-    console.error("Error fetching recipes:", error);
-    toast.error("Failed to load recipes. Please try again.");
-    return [];
+    });
   }
+  
+  // Filter by diet
+  if (filters.diet) {
+    switch (filters.diet.toLowerCase()) {
+      case 'vegetarian':
+        filteredRecipes = filteredRecipes.filter(recipe => 
+          !recipe.ingredients.some(ingredient => 
+            ['chicken', 'beef', 'pork', 'turkey', 'meat', 'fish', 'salmon'].some(meat => 
+              ingredient.name.toLowerCase().includes(meat)
+            )
+          )
+        );
+        break;
+      case 'vegan':
+        filteredRecipes = filteredRecipes.filter(recipe => 
+          !recipe.ingredients.some(ingredient => 
+            ['chicken', 'beef', 'pork', 'turkey', 'meat', 'fish', 'salmon', 'milk', 'cheese', 'yogurt', 'cream', 'egg'].some(animal => 
+              ingredient.name.toLowerCase().includes(animal)
+            )
+          )
+        );
+        break;
+      case 'keto':
+        filteredRecipes = filteredRecipes.filter(recipe => 
+          recipe.nutrition.carbs.amount < 20 && recipe.nutrition.fat.amount > 15
+        );
+        break;
+      case 'mediterranean':
+        filteredRecipes = filteredRecipes.filter(recipe => 
+          recipe.ingredients.some(ingredient => 
+            ['olive oil', 'fish', 'legume', 'vegetable', 'fruit', 'nut', 'seed', 'herb'].some(med => 
+              ingredient.name.toLowerCase().includes(med)
+            )
+          )
+        );
+        break;
+      case 'dash':
+        filteredRecipes = filteredRecipes.filter(recipe => 
+          recipe.healthLabels.some(label => 
+            label.toLowerCase().includes('low sodium') || label.toLowerCase().includes('heart healthy')
+          )
+        );
+        break;
+    }
+  }
+  
+  // Search by query
+  if (filters.query) {
+    const query = filters.query.toLowerCase();
+    filteredRecipes = filteredRecipes.filter(recipe => 
+      recipe.title.toLowerCase().includes(query) || 
+      recipe.ingredients.some(ingredient => ingredient.name.toLowerCase().includes(query))
+    );
+  }
+  
+  return filteredRecipes;
 };
 
 // Function to get a specific recipe by ID
 export const getRecipeById = async (id: number): Promise<Recipe | null> => {
   try {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Call Spoonacular API through Supabase Edge Function
+    const { data, error } = await supabase.functions.invoke('spoonacular', {
+      body: { 
+        endpoint: 'recipe',
+        id
+      }
+    });
     
-    const recipe = mockRecipes.find(r => r.id === id);
-    return recipe || null;
+    if (error) {
+      console.error("API error:", error);
+      toast.error("Failed to load recipe from API. Using cached data.");
+      // Fallback to mock data
+      return mockRecipes.find(r => r.id === id) || null;
+    }
+    
+    // Map Spoonacular recipe to our app's recipe format
+    return mapSpoonacularRecipe(data);
   } catch (error) {
     console.error("Error fetching recipe:", error);
-    toast.error("Failed to load recipe details. Please try again.");
-    return null;
+    toast.error("Failed to load recipe details. Using cached data.");
+    // Fallback to mock data
+    return mockRecipes.find(r => r.id === id) || null;
   }
 };
 
-// Save user favorites to localStorage
-export const toggleFavoriteRecipe = (recipeId: number): boolean => {
+// Generate recipe based on user preferences and ingredients
+export const generateRecipe = async (preferences: {
+  ingredients: string[];
+  mealType?: string;
+  diet?: string;
+  intolerances?: string[];
+}): Promise<Recipe[]> => {
   try {
-    const favoriteKey = 'healthyplate-favorites';
-    const favorites = JSON.parse(localStorage.getItem(favoriteKey) || '[]');
+    const user = supabase.auth.getUser();
+    const userId = (await user).data.user?.id;
     
-    const isFavorite = favorites.includes(recipeId);
+    // Call Spoonacular API through Supabase Edge Function
+    const { data, error } = await supabase.functions.invoke('spoonacular', {
+      body: { 
+        endpoint: 'generate',
+        ...preferences,
+        userId
+      }
+    });
     
-    if (isFavorite) {
-      // Remove from favorites
-      const updatedFavorites = favorites.filter((id: number) => id !== recipeId);
-      localStorage.setItem(favoriteKey, JSON.stringify(updatedFavorites));
-      return false;
-    } else {
-      // Add to favorites
-      favorites.push(recipeId);
-      localStorage.setItem(favoriteKey, JSON.stringify(favorites));
-      return true;
+    if (error) {
+      console.error("API error:", error);
+      toast.error("Failed to generate recipe. Please try again.");
+      return [];
     }
+    
+    if (!data.results || data.results.length === 0) {
+      toast.error("No recipes found with these criteria. Try adjusting your preferences.");
+      return [];
+    }
+    
+    // Map Spoonacular recipes to our app's recipe format
+    return data.results.map(mapSpoonacularRecipe);
   } catch (error) {
-    console.error("Error toggling favorite:", error);
-    toast.error("Failed to update favorites. Please try again.");
-    return false;
-  }
-};
-
-// Get favorite recipe IDs
-export const getFavoriteRecipeIds = (): number[] => {
-  try {
-    const favoriteKey = 'healthyplate-favorites';
-    return JSON.parse(localStorage.getItem(favoriteKey) || '[]');
-  } catch (error) {
-    console.error("Error getting favorite IDs:", error);
-    return [];
-  }
-};
-
-// Get favorite recipes
-export const getFavoriteRecipes = async (): Promise<Recipe[]> => {
-  const favoriteIds = getFavoriteRecipeIds();
-  if (favoriteIds.length === 0) return [];
-  
-  const favorites = await Promise.all(
-    favoriteIds.map(id => getRecipeById(id))
-  );
-  
-  // Filter out any null values
-  return favorites.filter((recipe): recipe is Recipe => recipe !== null);
-};
-
-// Save health profile to localStorage
-export const saveHealthProfile = (profile: any): void => {
-  try {
-    localStorage.setItem('healthyplate-profile', JSON.stringify(profile));
-  } catch (error) {
-    console.error("Error saving health profile:", error);
-    toast.error("Failed to save health profile. Please try again.");
-  }
-};
-
-// Get health profile from localStorage
-export const getHealthProfile = (): any => {
-  try {
-    const profile = localStorage.getItem('healthyplate-profile');
-    return profile ? JSON.parse(profile) : null;
-  } catch (error) {
-    console.error("Error getting health profile:", error);
-    return null;
-  }
-};
+    console.error("Error generating recipe:", error);
+    toast.error("Failed to generate
