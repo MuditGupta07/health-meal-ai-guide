@@ -146,7 +146,9 @@ const RecipeDetailPage = () => {
                 ))}
               </div>
               
-              <p className="text-muted-foreground">{recipe.summary}</p>
+              <p className="text-muted-foreground" 
+                dangerouslySetInnerHTML={{ __html: recipe.summary }}
+              ></p>
             </div>
           </div>
           
