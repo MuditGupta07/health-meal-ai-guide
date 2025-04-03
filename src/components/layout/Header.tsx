@@ -3,12 +3,15 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Heart, Search, User, Menu, X } from "lucide-react";
+import { Heart, Search, User, Menu, X, LogIn } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
+  const { user, profile } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b shadow-sm">
@@ -41,11 +44,25 @@ export function Header() {
                   <Heart className="h-5 w-5" />
                 </Button>
               </Link>
-              <Link to="/profile">
-                <Button variant="ghost" size="icon" aria-label="Profile">
-                  <User className="h-5 w-5" />
-                </Button>
-              </Link>
+              
+              {user ? (
+                <Link to="/profile">
+                  <Button variant="ghost" size="icon" aria-label="Profile">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={profile?.avatar_url || ""} alt={profile?.name || "User"} />
+                      <AvatarFallback className="text-sm">
+                        {profile?.name ? profile.name.charAt(0).toUpperCase() : "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </Link>
+              ) : (
+                <Link to="/auth">
+                  <Button variant="ghost" size="icon" aria-label="Login">
+                    <LogIn className="h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
             </nav>
           </>
         ) : (
@@ -93,13 +110,24 @@ export function Header() {
             >
               Favorites
             </Link>
-            <Link 
-              to="/profile" 
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Profile
-            </Link>
+            
+            {user ? (
+              <Link 
+                to="/profile" 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                My Profile
+              </Link>
+            ) : (
+              <Link 
+                to="/auth" 
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Login / Register
+              </Link>
+            )}
           </nav>
         </div>
       )}

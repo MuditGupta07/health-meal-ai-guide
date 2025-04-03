@@ -9,7 +9,10 @@ import RecipesPage from "./pages/RecipesPage";
 import RecipeDetailPage from "./pages/RecipeDetailPage";
 import HealthProfilePage from "./pages/HealthProfilePage";
 import FavoritesPage from "./pages/FavoritesPage";
+import ProfilePage from "./pages/ProfilePage";
+import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
+import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient();
 
@@ -19,14 +22,18 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/recipes" element={<RecipesPage />} />
-          <Route path="/recipe/:id" element={<RecipeDetailPage />} />
-          <Route path="/health-profile" element={<HealthProfilePage />} />
-          <Route path="/favorites" element={<FavoritesPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/recipes" element={<RecipesPage />} />
+            <Route path="/recipe/:id" element={<RecipeDetailPage />} />
+            <Route path="/health-profile" element={<HealthProfilePage />} />
+            <Route path="/favorites" element={<FavoritesPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
