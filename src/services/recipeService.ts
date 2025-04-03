@@ -1,3 +1,4 @@
+
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Json } from "@/integrations/supabase/types";
@@ -647,3 +648,116 @@ export const generateRecipe = async (preferences: {
     }
     
     // Map Spoonacular recipes to our app's recipe format
+    return data.results.map(mapSpoonacularRecipe);
+  } catch (error) {
+    console.error("Error generating recipe:", error);
+    toast.error("Failed to generate recipe. Please try again later.");
+    return [];
+  }
+};
+
+// Local storage keys
+const FAVORITES_STORAGE_KEY = 'healthyplate_favorites';
+const HEALTH_PROFILE_STORAGE_KEY = 'healthyplate_health_profile';
+
+// Health profile management
+export const saveHealthProfile = (profile: HealthProfile): void => {
+  try {
+    localStorage.setItem(HEALTH_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    toast.success("Health profile saved successfully!");
+  } catch (error) {
+    console.error("Error saving health profile:", error);
+    toast.error("Failed to save health profile");
+  }
+};
+
+export const getHealthProfile = (): HealthProfile | null => {
+  try {
+    const profileStr = localStorage.getItem(HEALTH_PROFILE_STORAGE_KEY);
+    if (!profileStr) return null;
+    return JSON.parse(profileStr) as HealthProfile;
+  } catch (error) {
+    console.error("Error retrieving health profile:", error);
+    return null;
+  }
+};
+
+// Favorites management
+export const toggleFavoriteRecipe = (recipeId: number): boolean => {
+  try {
+    const favorites = getFavoriteRecipeIds();
+    const isFavorite = favorites.includes(recipeId);
+    
+    let newFavorites: number[];
+    if (isFavorite) {
+      // Remove from favorites
+      newFavorites = favorites.filter(id => id !== recipeId);
+      toast.success("Recipe removed from favorites");
+    } else {
+      // Add to favorites
+      newFavorites = [...favorites, recipeId];
+      toast.success("Recipe added to favorites");
+    }
+    
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(newFavorites));
+    return !isFavorite; // Return the new state
+  } catch (error) {
+    console.error("Error toggling favorite:", error);
+    toast.error("Failed to update favorites");
+    return false;
+  }
+};
+
+export const getFavoriteRecipeIds = (): number[] => {
+  try {
+    const favoritesStr = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (!favoritesStr) return [];
+    return JSON.parse(favoritesStr) as number[];
+  } catch (error) {
+    console.error("Error retrieving favorites:", error);
+    return [];
+  }
+};
+
+export const getFavoriteRecipes = async (): Promise<Recipe[]> => {
+  const favoriteIds = getFavoriteRecipeIds();
+  if (favoriteIds.length === 0) return [];
+  
+  // For each favorite ID, fetch the recipe details
+  const recipePromises = favoriteIds.map(id => getRecipeById(id));
+  const recipes = await Promise.all(recipePromises);
+  
+  // Filter out any null results
+  return recipes.filter((recipe): recipe is Recipe => recipe !== null);
+};
+
+// Future implementation: save favorites to Supabase database when authentication is implemented
+// This would replace the local storage implementation
+const saveRecipeToDb = async (recipe: Recipe): Promise<boolean> => {
+  try {
+    const user = await supabase.auth.getUser();
+    const userId = user.data.user?.id;
+    
+    if (!userId) {
+      toast.error("You must be logged in to save recipes");
+      return false;
+    }
+    
+    const { error } = await supabase.from('saved_recipes').insert({
+      user_id: userId,
+      recipe_id: recipe.id,
+      recipe_data: recipe as unknown as Json
+    });
+    
+    if (error) {
+      console.error("Error saving recipe:", error);
+      toast.error("Failed to save recipe to database. Please try again.");
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error saving recipe to database:", error);
+    return false;
+  }
+};
