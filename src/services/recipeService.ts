@@ -457,6 +457,13 @@ export const getRecipes = async (filters?: RecipeFilters): Promise<Recipe[]> => 
       return filterMockRecipes(filters);
     }
     
+    // Check if the response indicates we should use mock data
+    if (data?.useMockData) {
+      console.log("Using mock data as indicated by API");
+      toast.warning("Using local recipe data due to API limitations.");
+      return filterMockRecipes(filters);
+    }
+    
     if (!data.results || data.results.length === 0) {
       return [];
     }
@@ -606,6 +613,13 @@ export const getRecipeById = async (id: number): Promise<Recipe | null> => {
       return mockRecipes.find(r => r.id === id) || null;
     }
     
+    // Check if the response indicates we should use mock data
+    if (data?.useMockData) {
+      console.log("Using mock data as indicated by API");
+      toast.warning("Using local recipe data due to API limitations.");
+      return mockRecipes.find(r => r.id === id) || null;
+    }
+    
     // Map Spoonacular recipe to our app's recipe format
     return mapSpoonacularRecipe(data);
   } catch (error) {
@@ -640,6 +654,14 @@ export const generateRecipe = async (preferences: {
       console.error("API error:", error);
       toast.error("Failed to generate recipe. Please try again.");
       return [];
+    }
+    
+    // Check if the response indicates we should use mock data
+    if (data?.useMockData) {
+      console.log("Using mock data as indicated by API");
+      toast.warning("Using sample recipes due to API limitations.");
+      // Return a subset of mock recipes as a fallback
+      return mockRecipes.slice(0, 3);
     }
     
     if (!data.results || data.results.length === 0) {

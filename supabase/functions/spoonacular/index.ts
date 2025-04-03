@@ -16,14 +16,20 @@ serve(async (req) => {
   try {
     const SPOONACULAR_API_KEY = Deno.env.get('SPOONACULAR_API_KEY');
     if (!SPOONACULAR_API_KEY) {
+      console.error('SPOONACULAR_API_KEY is not set in environment variables');
       throw new Error('SPOONACULAR_API_KEY is not set');
     }
 
+    console.log('Using Spoonacular API key:', SPOONACULAR_API_KEY.substring(0, 5) + '...');
+
     // Parse request body
-    const requestData = await req.json().catch(() => ({}));
+    const requestData = await req.json().catch(() => {
+      console.error('Failed to parse request body as JSON');
+      return ({});
+    });
     const endpoint = requestData.endpoint;
 
-    console.log(`Processing request for endpoint: ${endpoint}`, requestData);
+    console.log(`Processing request for endpoint: ${endpoint}`, JSON.stringify(requestData));
 
     if (!endpoint) {
       throw new Error('Endpoint parameter is required');
@@ -96,15 +102,32 @@ serve(async (req) => {
         throw new Error(`Invalid endpoint: ${endpoint}`);
     }
 
-    console.log(`Calling Spoonacular API: ${apiUrl}?${queryParams.toString()}`);
+    const requestUrl = `${apiUrl}?${queryParams.toString()}`;
+    console.log(`Calling Spoonacular API: ${requestUrl}`);
 
     // Make request to Spoonacular API
-    const response = await fetch(`${apiUrl}?${queryParams.toString()}`);
+    const response = await fetch(requestUrl);
+    
+    // Check for rate limiting or other API errors
+    if (response.status === 429) {
+      console.error('Rate limit reached for Spoonacular API');
+      return new Response(
+        JSON.stringify({ error: 'Rate limit reached for recipe API', useMockData: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 }
+      );
+    }
     
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Spoonacular API error: ${response.status} - ${errorText}`);
-      throw new Error(`Spoonacular API returned ${response.status}`);
+      return new Response(
+        JSON.stringify({ 
+          error: `Spoonacular API returned ${response.status}`, 
+          details: errorText,
+          useMockData: true 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
+      );
     }
     
     const data = await response.json();
@@ -139,9 +162,15 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in spoonacular function:', error);
     
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({ 
+        error: error.message, 
+        useMockData: true 
+      }), 
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      }
+    );
   }
 });
