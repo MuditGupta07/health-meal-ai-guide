@@ -108,6 +108,18 @@ serve(async (req) => {
     // Make request to Spoonacular API
     const response = await fetch(requestUrl);
     
+    // Handle payment required error specifically (402)
+    if (response.status === 402) {
+      console.error('Payment required error from Spoonacular API - API quota likely exceeded');
+      return new Response(
+        JSON.stringify({ 
+          error: 'API quota exceeded for recipe API. Please try again tomorrow or upgrade your plan.', 
+          useMockData: true 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 402 }
+      );
+    }
+    
     // Check for rate limiting or other API errors
     if (response.status === 429) {
       console.error('Rate limit reached for Spoonacular API');
