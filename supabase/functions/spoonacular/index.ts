@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { supabaseClient } from "../_shared/supabase-client.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,9 +19,15 @@ serve(async (req) => {
       throw new Error('SPOONACULAR_API_KEY is not set');
     }
 
-    const url = new URL(req.url);
-    const endpoint = url.pathname.split('/').pop();
+    // Parse request body
     const requestData = await req.json().catch(() => ({}));
+    const endpoint = requestData.endpoint;
+
+    console.log(`Processing request for endpoint: ${endpoint}`, requestData);
+
+    if (!endpoint) {
+      throw new Error('Endpoint parameter is required');
+    }
 
     let apiUrl;
     let queryParams = new URLSearchParams();
@@ -86,8 +93,10 @@ serve(async (req) => {
         break;
         
       default:
-        throw new Error('Invalid endpoint');
+        throw new Error(`Invalid endpoint: ${endpoint}`);
     }
+
+    console.log(`Calling Spoonacular API: ${apiUrl}?${queryParams.toString()}`);
 
     // Make request to Spoonacular API
     const response = await fetch(`${apiUrl}?${queryParams.toString()}`);
@@ -99,24 +108,28 @@ serve(async (req) => {
     }
     
     const data = await response.json();
+    console.log("Received response from Spoonacular:", JSON.stringify(data).substring(0, 200) + "...");
 
     // Store AI-generated recipes in database if it's a generation request
     if (endpoint === 'generate' && requestData.userId) {
-      const { supabaseClient } = await import('../_shared/supabase-client.ts');
-      
-      await supabaseClient
-        .from('recipe_generations')
-        .insert({
-          user_id: requestData.userId,
-          prompt: JSON.stringify({
-            ingredients: requestData.ingredients,
-            mealType: requestData.mealType,
-            diet: requestData.diet,
-            intolerances: requestData.intolerances
-          }),
-          result: data,
-          ai_model: 'spoonacular'
-        });
+      try {
+        await supabaseClient
+          .from('recipe_generations')
+          .insert({
+            user_id: requestData.userId,
+            prompt: JSON.stringify({
+              ingredients: requestData.ingredients,
+              mealType: requestData.mealType,
+              diet: requestData.diet,
+              intolerances: requestData.intolerances
+            }),
+            result: data,
+            ai_model: 'spoonacular'
+          });
+      } catch (dbError) {
+        console.error("Error storing recipe generation:", dbError);
+        // Continue even if database storage fails
+      }
     }
 
     return new Response(JSON.stringify(data), {
