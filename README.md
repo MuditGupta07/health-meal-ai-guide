@@ -1,73 +1,51 @@
-# Welcome to your Lovable project
+# 🥗 AI-Powered Healthcare Meal Guide  
 
-## Project info
+**A smart, AI-driven recipe recommendation system tailored for your health needs!**  
 
-**URL**: https://lovable.dev/projects/281b2ed5-03ba-4db6-8fb2-8e37b5457531
+## 🚀 Overview  
 
-## How can I edit this code?
+This project is an **AI-powered recipe generator** that suggests **healthy meals** based on medical conditions, allergies, and dietary preferences. It integrates **AI, nutrition APIs, and user health data** to ensure every meal aligns with individual health requirements.  
 
-There are several ways of editing your application.
+## ✨ Features  
 
-**Use Lovable**
+✅ **Personalized Meal Plans** – Get recipe suggestions tailored to **diabetes, heart disease, PCOS, or other medical conditions**.  
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/281b2ed5-03ba-4db6-8fb2-8e37b5457531) and start prompting.
+✅ **AI-Powered Recommendations** – Smart AI analyzes **user input** (ingredients, health conditions, allergies) to suggest the best meals.  
 
-Changes made via Lovable will be committed automatically to this repo.
+✅ **Doctor-Prescribed Diet Integration** – Upload a doctor’s diet plan, and AI will generate **real meal options** from it.  
 
-**Use your preferred IDE**
+✅ **Allergy & Diet Filters** – Avoid harmful ingredients and get alternatives suited for **vegan, keto, gluten-free, or allergy-safe diets**.  
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+✅ **Nutritional Breakdown** – See detailed nutrition info for each meal, ensuring balanced and healthy eating.  
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🛠 Tech Stack  
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+| Technology | Purpose |  
+|------------|---------|  
+| **React.js (Vite)** | Frontend UI framework |   
+| **Supabase (PostgreSQL)** | Database for storing user data & preferences |  
+| **Spoonacular API** | Fetching recipes and nutrition data |  
+| **OpenAI API** | AI-powered meal recommendations & diet analysis |  
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+---
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 🎯 How It Works  
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+1️⃣ **User Inputs:** Enter **ingredients, dietary restrictions, or medical conditions**.  
+2️⃣ **AI Processing:** The system **matches ingredients** with a **database of doctor-approved meals**.  
+3️⃣ **Recipe Suggestions:** AI **filters recipes** based on **allergies, nutrition, and preferences**.  
+4️⃣ **Final Meal Plan:** Users receive a **list of personalized meal options** with full nutritional breakdowns.  
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🎯 Future Enhancements:
 
-**Use GitHub Codespaces**
+✅ **Voice Commands:** Users can speak their dietary needs instead of typing.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+✅ **Grocery List Integration:** Generate a shopping list based on recommended meals.
 
-## What technologies are used for this project?
+✅ **Doctor Collaboration:** Partner with nutritionists & healthcare providers for verified meal plans.
 
-This project is built with:
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/281b2ed5-03ba-4db6-8fb2-8e37b5457531) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes it is!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
