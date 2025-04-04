@@ -38,20 +38,21 @@ export function Footer() {
             <h4 className="font-medium mb-4">Help & Support</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link to="/faq" className="text-muted-foreground hover:text-foreground transition-colors">
+                <button  className="text-muted-foreground hover:text-foreground transition-colors">
                   FAQ
-                </Link>
+                </button>
               </li>
               <li>
-                <Link to="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
+                <button  className="text-muted-foreground hover:text-foreground transition-colors">
                   Contact Us
-                </Link>
+                </button>
               </li>
               <li>
-                <Link to="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">
+                <button  className="text-muted-foreground hover:text-foreground transition-colors">
                   Privacy Policy
-                </Link>
-              </li>
+                </button>
+                
+              </li>
             </ul>
           </div>
           
