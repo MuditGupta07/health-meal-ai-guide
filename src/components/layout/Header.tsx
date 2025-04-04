@@ -18,6 +18,11 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-4">
           <Link to="/" className="flex items-center gap-2">
+            <img 
+              src="/Healthy-Plate.png" 
+              alt="HealthyPlate Logo" 
+              className="h-10 w-10 object-contain"
+            />
             <span className="text-health-teal font-bold text-xl">HealthyPlate</span>
           </Link>
         </div>
