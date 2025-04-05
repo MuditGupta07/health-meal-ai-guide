@@ -48,4 +48,5 @@ This project is an **AI-powered recipe generator** that suggests **healthy meals
 
 ✅ **Doctor Collaboration:** Partner with nutritionists & healthcare providers for verified meal plans.
 
-
+---
+## Website is live at: https://health-meal-ai-guide.vercel.app/
